@@ -1,14 +1,19 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 )
 
+//go:embed tongwen-dict/*.json
+var dicts embed.FS
+
 func LoadLocalJSON(filename string) map[string]string {
-	data, err := os.ReadFile(filename)
+	filename = "tongwen-dict/" + filename
+
+	data, err := dicts.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,8 +29,8 @@ func LoadLocalJSON(filename string) map[string]string {
 func main() {
 	fmt.Println("s2t converting")
 
-	// result := LoadLocalJSON("tongwen-dict/s2t-char.json")
-	result := LoadLocalJSON("tongwen-dict/s2t-phrase.json")
+	// result := LoadLocalJSON("s2t-char.json")
+	result := LoadLocalJSON("s2t-phrase.json")
 
 	count := 0
 	for k, v := range result {
