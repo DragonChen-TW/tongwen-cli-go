@@ -2,14 +2,17 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/dragonchen-tw/tongwen-cli-go/internal/assets"
 	"github.com/dragonchen-tw/tongwen-cli-go/pkg/converter"
 	"github.com/dragonchen-tw/tongwen-cli-go/pkg/loader"
 )
 
 func TestLoadJSON(t *testing.T) {
-	dict := loader.LoadDiskJSON(dicts, "s2t-custom.json")
+	dict := loader.LoadDiskJSON(assets.Dicts, "s2t-custom.json")
 
 	if dict["“"] != "「" {
 		t.Errorf("Expected '“' to map to '「', got '%s'", dict["“"])
@@ -17,7 +20,7 @@ func TestLoadJSON(t *testing.T) {
 }
 
 func TestBuildIndexedMultiMap(t *testing.T) {
-	dict := loader.LoadDiskJSON(dicts, "s2t-phrase.json")
+	dict := loader.LoadDiskJSON(assets.Dicts, "s2t-phrase.json")
 	indexed := converter.MakeMultiIndex(dict)
 
 	if entry, exist := indexed["数字"]; exist {
@@ -39,7 +42,7 @@ func TestBuildIndexedMultiMap(t *testing.T) {
 }
 
 func TestConvertByChar(t *testing.T) {
-	dict := loader.LoadDiskJSON(dicts, "s2t-char.json")
+	dict := loader.LoadDiskJSON(assets.Dicts, "s2t-char.json")
 	testString := "汉字转换测试123"
 	expectedString := "漢字轉換測試123"
 	output := converter.ConvertChar(dict, testString)
@@ -49,8 +52,8 @@ func TestConvertByChar(t *testing.T) {
 }
 
 func TestConvertByPhraseAndChar(t *testing.T) {
-	dictChar := loader.LoadDiskJSON(dicts, "s2t-char.json")
-	rawDictPhrase := loader.LoadDiskJSON(dicts, "s2t-phrase.json")
+	dictChar := loader.LoadDiskJSON(assets.Dicts, "s2t-char.json")
+	rawDictPhrase := loader.LoadDiskJSON(assets.Dicts, "s2t-phrase.json")
 	dictPhrase := converter.MakeMultiIndex(rawDictPhrase)
 
 	tests := []struct {
@@ -79,8 +82,8 @@ func TestDiffConversionBetweenCharAndPhrase(t *testing.T) {
 	// 后来她成为了皇后区的皇后 / 後來她成為了皇后區的皇后
 	// 树东里巷子里面的面店 / 樹東里巷子裡面的麵店
 	// 发芽 头发 江苏 复苏 / 發芽 頭髮 江蘇 復甦
-	dictChar := loader.LoadDiskJSON(dicts, "s2t-char.json")
-	rawDictPhrase := loader.LoadDiskJSON(dicts, "s2t-phrase.json")
+	dictChar := loader.LoadDiskJSON(assets.Dicts, "s2t-char.json")
+	rawDictPhrase := loader.LoadDiskJSON(assets.Dicts, "s2t-phrase.json")
 	dictPhrase := converter.MakeMultiIndex(rawDictPhrase)
 
 	tests := []struct {
@@ -104,4 +107,28 @@ func TestDiffConversionBetweenCharAndPhrase(t *testing.T) {
 			t.Errorf("%s: expected phrase conversion to be '%s', got '%s'", tt.name, tt.expected, resultPhrase)
 		}
 	}
+}
+
+func BenchmarkTranslateWithCharAndPhrase(b *testing.B) {
+	benchmarkData := getBenchmarkData()
+
+	// Here you would typically call your benchmarking functions
+	dictChar := loader.LoadDiskJSON(assets.Dicts, "s2t-char.json")
+	rawDictPhrase := loader.LoadDiskJSON(assets.Dicts, "s2t-phrase.json")
+	dictPhrase := converter.MakeMultiIndex(rawDictPhrase)
+
+	b.ResetTimer()
+	for range 500 {
+		converter.ConvertPhraseAndChar(dictChar, dictPhrase, benchmarkData)
+	}
+	b.StopTimer()
+}
+
+func getBenchmarkData() string {
+	data, err := os.ReadFile("benchmark-text.txt")
+	if err != nil {
+		panic("Failed to read benchmark text file")
+	}
+	multiplyString := strings.Repeat(string(data), 1)
+	return multiplyString
 }
