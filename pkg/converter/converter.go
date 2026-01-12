@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -61,19 +62,20 @@ func MakeMultiIndex(multi DicMap) IndexedMultiMap {
 }
 
 func (s *S2TConverter) ConvertChar(inputed string) string {
-	converted := Chars(inputed)
-
-	for i, char := range converted {
+	var builder strings.Builder
+	for _, char := range inputed {
 		if mapped, exist := s.DictChar[string(char)]; exist {
-			converted[i] = []rune(mapped)[0]
+			builder.WriteString(mapped)
+		} else {
+			builder.WriteRune(char)
 		}
 	}
-	return string(converted)
+	return builder.String()
 }
 
 func (s *S2TConverter) ConvertPhrase(text string) string {
 	startTime := time.Now()
-	converted := ""
+	var convertedBuilder strings.Builder
 	textChars := Chars(text)
 	textLength := len(textChars)
 	if s.Verbose {
@@ -116,7 +118,7 @@ func (s *S2TConverter) ConvertPhrase(text string) string {
 			for ; sliceLength > 1; sliceLength-- {
 				tomap := string(textChars[pointer : pointer+sliceLength])
 				if mapped, exists := indexedData.Indies[tomap]; exists {
-					converted += mapped
+					convertedBuilder.WriteString(mapped)
 					pointer += sliceLength - 1
 					isFound = true
 					break
@@ -126,17 +128,17 @@ func (s *S2TConverter) ConvertPhrase(text string) string {
 			if !isFound {
 				mapped, exist := s.DictChar[string(textChars[pointer])]
 				if exist {
-					converted += mapped
+					convertedBuilder.WriteString(mapped)
 				} else {
-					converted += string(textChars[pointer])
+					convertedBuilder.WriteRune(textChars[pointer])
 				}
 			}
 		} else {
 			mapped, exist := s.DictChar[string(textChars[pointer])]
 			if exist {
-				converted += mapped
+				convertedBuilder.WriteString(mapped)
 			} else {
-				converted += string(textChars[pointer])
+				convertedBuilder.WriteRune(textChars[pointer])
 			}
 		}
 	}
@@ -149,5 +151,5 @@ func (s *S2TConverter) ConvertPhrase(text string) string {
 		log.Printf("ConvertPhrase time cost: %v\n", timeCost)
 	}
 
-	return converted
+	return convertedBuilder.String()
 }

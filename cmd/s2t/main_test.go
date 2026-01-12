@@ -119,7 +119,7 @@ func BenchmarkTranslateWithCharAndPhrase(b *testing.B) {
 	s2tconverter := converter.NewConverter(dictChar, dictPhrase, false)
 
 	b.ResetTimer()
-	for range 500 {
+	for range 20 {
 		s2tconverter.ConvertPhrase(benchmarkData)
 	}
 	b.StopTimer()
@@ -130,6 +130,6 @@ func getBenchmarkData() string {
 	if err != nil {
 		panic("Failed to read benchmark text file")
 	}
-	multiplyString := strings.Repeat(string(data), 1)
+	multiplyString := strings.Repeat(string(data), 1000)
 	return multiplyString
 }
