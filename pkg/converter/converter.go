@@ -1,5 +1,12 @@
 package converter
 
+import (
+	"fmt"
+	"log"
+	"os"
+	"time"
+)
+
 type DicMap map[string]string
 
 type Chars []rune
@@ -10,6 +17,22 @@ type IndexedMap struct {
 }
 
 type IndexedMultiMap map[string]*IndexedMap
+
+type S2TConverter struct {
+	DictChar   DicMap
+	DictPhrase IndexedMultiMap
+	Verbose    bool
+}
+
+// newConverter creates a new S2TConverter instance that input dictChar and dictPhrase. then do neccesary process
+func NewConverter(dictChar DicMap, dictPhrase DicMap, verbose bool) *S2TConverter {
+	indexedPhrase := MakeMultiIndex(dictPhrase)
+	return &S2TConverter{
+		DictChar:   dictChar,
+		DictPhrase: indexedPhrase,
+		Verbose:    verbose,
+	}
+}
 
 func MakeMultiIndex(multi DicMap) IndexedMultiMap {
 	indexed := make(IndexedMultiMap)
@@ -37,34 +60,60 @@ func MakeMultiIndex(multi DicMap) IndexedMultiMap {
 	return indexed
 }
 
-func ConvertChar(dict DicMap, inputed string) string {
+func (s *S2TConverter) ConvertChar(inputed string) string {
 	converted := Chars(inputed)
 
 	for i, char := range converted {
-		if mapped, exist := dict[string(char)]; exist {
+		if mapped, exist := s.DictChar[string(char)]; exist {
 			converted[i] = []rune(mapped)[0]
 		}
 	}
 	return string(converted)
 }
 
-func ConvertPhraseAndChar(single DicMap, multi IndexedMultiMap, text string) string {
+func (s *S2TConverter) ConvertPhrase(text string) string {
+	startTime := time.Now()
 	converted := ""
 	textChars := Chars(text)
 	textLength := len(textChars)
+	if s.Verbose {
+		log.Printf("Total length of textChars: %d\n", textLength)
+	}
 
+	// Simple progress bar (flush in terminal)
+	progressBarWidth := 50
 	for pointer := 0; pointer < textLength; pointer++ {
-		index := textChars[pointer:]
-		if len(index) > 1 {
-			index = textChars[pointer : pointer+2]
+		if s.Verbose {
+			if textLength > 0 && pointer%(textLength/progressBarWidth+1) == 0 {
+				progress := int(float64(pointer) / float64(textLength) * float64(progressBarWidth))
+				bar := "["
+				for i := 0; i < progressBarWidth; i++ {
+					if i < progress {
+						bar += "="
+					} else {
+						bar += " "
+					}
+				}
+				bar += "]"
+				// Print progress bar with carriage return and flush (bash)
+				fmt.Fprintf(os.Stdout, "\rProgress: %s %d/%d", bar, pointer, textLength)
+				os.Stdout.Sync()
+			}
 		}
-		indexedData, found := multi[string(index)]
+
+		var index string
+		if pointer+2 < textLength {
+			index = string(textChars[pointer : pointer+2])
+		} else {
+			index = string(textChars[pointer:])
+		}
+		indexedData, found := s.DictPhrase[index]
 		isFound := false
 
 		if found {
 			sliceLength := min(textLength-pointer, indexedData.Max)
 
-			for sliceLength > 1 {
+			for ; sliceLength > 1; sliceLength-- {
 				tomap := string(textChars[pointer : pointer+sliceLength])
 				if mapped, exists := indexedData.Indies[tomap]; exists {
 					converted += mapped
@@ -72,11 +121,10 @@ func ConvertPhraseAndChar(single DicMap, multi IndexedMultiMap, text string) str
 					isFound = true
 					break
 				}
-				sliceLength--
 			}
 
 			if !isFound {
-				mapped, exist := single[string(textChars[pointer])]
+				mapped, exist := s.DictChar[string(textChars[pointer])]
 				if exist {
 					converted += mapped
 				} else {
@@ -84,13 +132,21 @@ func ConvertPhraseAndChar(single DicMap, multi IndexedMultiMap, text string) str
 				}
 			}
 		} else {
-			mapped, exist := single[string(textChars[pointer])]
+			mapped, exist := s.DictChar[string(textChars[pointer])]
 			if exist {
 				converted += mapped
 			} else {
 				converted += string(textChars[pointer])
 			}
 		}
+	}
+
+	if s.Verbose {
+		// Print newline after progress bar is done
+		fmt.Fprintln(os.Stdout)
+
+		timeCost := time.Since(startTime)
+		log.Printf("ConvertPhrase time cost: %v\n", timeCost)
 	}
 
 	return converted
